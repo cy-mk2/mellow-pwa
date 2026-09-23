@@ -107,7 +107,7 @@ GitHub Freeでは、公開用リポジトリをPublicにします。公開され
 ## 更新方法
 
 1. コードを修正し、localhostで確認します。
-2. キャッシュ対象を変更したら、`sw.js`の `CACHE_NAME` を次回の例では `mellow-cache-v4` のように更新します。現在のキャッシュ名は `mellow-cache-v3` です。
+2. キャッシュ対象を変更したら、`sw.js`の `CACHE_NAME` を次回の例では `mellow-cache-v5` のように更新します。現在のキャッシュ名は `mellow-cache-v4` です。
 3. Gitへコミットし、GitHubの `main` へpushします。
 4. GitHub Pages更新後、PWAをオンラインで一度起動します。
 5. 次回起動で新版へ切り替わることを確認します。
@@ -150,6 +150,6 @@ Chromeからインストール後、登録、再起動後の保存、機内モ�
 
 ## バージョン
 
-- PWA版: 1.0.0
+- PWA版: 1.0.1
 - localStorage: v1
 - JSONバックアップ: version 1（旧版互換）
