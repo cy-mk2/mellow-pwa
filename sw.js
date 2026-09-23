@@ -1,7 +1,7 @@
 "use strict";
 
 // アプリ本体を更新したら、このバージョン名を変更してください。
-const CACHE_NAME = "mellow-cache-v2";
+const CACHE_NAME = "mellow-cache-v3";
 const APP_ASSETS = [
   "./",
   "./index.html",
@@ -33,15 +33,17 @@ self.addEventListener("fetch", (event) => {
 
   if (event.request.mode === "navigate") {
     event.respondWith(
-      fetch(event.request)
-        .then(async (response) => {
-          if (response.ok) {
-            const cache = await caches.open(CACHE_NAME);
-            await cache.put("./index.html", response.clone());
-          }
-          return response;
-        })
-        .catch(() => caches.match("./index.html"))
+      caches.match("./index.html").then(async (cached) => {
+        // キャッシュ済みなら通信せずに起動し、iOSのオフライン警告を避ける。
+        if (cached) return cached;
+
+        const response = await fetch(event.request);
+        if (response.ok) {
+          const cache = await caches.open(CACHE_NAME);
+          await cache.put("./index.html", response.clone());
+        }
+        return response;
+      })
     );
     return;
   }
