@@ -313,6 +313,12 @@ function drawXAxis(ctx, rect, padding, x, range) {
   });
 }
 
+// 長い期間では点を間引き、折れ線の流れを読み取りやすくする。
+function visibleChartPointRecords(records, period) {
+  if (period === "month" || records.length <= 1) return records;
+  return [records[0], records[records.length - 1]];
+}
+
 function drawChart(records, range) {
   const canvas = elements.canvas;
   const rect = canvas.getBoundingClientRect();
@@ -360,8 +366,11 @@ function drawChart(records, range) {
     records.forEach((record, index) => { const pointX = x(parseLocalDate(record.date)); const pointY = y(record.weight); index ? ctx.lineTo(pointX, pointY) : ctx.moveTo(pointX, pointY); });
     ctx.stroke();
   }
-  records.forEach((record) => {
-    ctx.beginPath(); ctx.arc(x(parseLocalDate(record.date)), y(record.weight), 4.5, 0, Math.PI * 2); ctx.fillStyle = accent; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = ink; ctx.stroke();
+  const pointsToDraw = visibleChartPointRecords(records, state.chartPeriod);
+  const pointRadius = state.chartPeriod === "month" ? 4.5 : 3;
+  const pointStrokeWidth = state.chartPeriod === "month" ? 2 : 1.5;
+  pointsToDraw.forEach((record) => {
+    ctx.beginPath(); ctx.arc(x(parseLocalDate(record.date)), y(record.weight), pointRadius, 0, Math.PI * 2); ctx.fillStyle = accent; ctx.fill(); ctx.lineWidth = pointStrokeWidth; ctx.strokeStyle = ink; ctx.stroke();
   });
 }
 
