@@ -10,6 +10,7 @@ const state = {
   records: loadRecords(),
   goal: loadNumber(STORAGE_KEYS.goal),
   selectedMonth: startOfMonth(new Date()),
+  chartPeriod: "month",
   editingDate: null,
   deleteDate: null,
 };
@@ -18,7 +19,7 @@ const $ = (selector) => document.querySelector(selector);
 const elements = {
   form: $("#weightForm"), date: $("#dateInput"), weight: $("#weightInput"), dateError: $("#dateError"), weightError: $("#weightError"),
   submit: $("#submitButton"), cancelEdit: $("#cancelEditButton"), todayBadge: $("#todayBadge"),
-  monthLabel: $("#monthLabel"), prevMonth: $("#prevMonth"), nextMonth: $("#nextMonth"), canvas: $("#weightChart"), chartEmpty: $("#chartEmpty"),
+  monthLabel: $("#monthLabel"), prevMonth: $("#prevMonth"), nextMonth: $("#nextMonth"), periodTabs: [...document.querySelectorAll("[data-period]")], canvas: $("#weightChart"), chartEmpty: $("#chartEmpty"),
   currentWeight: $("#currentWeight"), goalDistance: $("#goalDistance"), goalStatus: $("#goalStatus"), openGoal: $("#openGoalButton"),
   goalDialog: $("#goalDialog"), goalForm: $("#goalForm"), goalInput: $("#goalInput"), goalError: $("#goalError"), removeGoal: $("#removeGoalButton"),
   changeBlock: $("#changeBlock"), changeValue: $("#changeValue"), changeRoute: $("#changeRoute"), firstWeight: $("#firstWeight"), latestWeight: $("#latestWeight"), minWeight: $("#minWeight"), maxWeight: $("#maxWeight"), avgWeight: $("#avgWeight"),
@@ -73,6 +74,33 @@ function startOfMonth(date) { return new Date(date.getFullYear(), date.getMonth(
 function monthKey(date) { return localDateString(date).slice(0, 7); }
 function formatWeight(value) { return Number.isFinite(value) ? `${value.toFixed(1)}kg` : "—"; }
 function selectedRecords() { return state.records.filter((record) => record.date.startsWith(monthKey(state.selectedMonth))).sort((a, b) => a.date.localeCompare(b.date)); }
+
+const CHART_PERIOD_MONTHS = { month: 1, halfYear: 6, year: 12 };
+
+function selectedChartRange() {
+  const months = CHART_PERIOD_MONTHS[state.chartPeriod];
+  const start = new Date(state.selectedMonth.getFullYear(), state.selectedMonth.getMonth() - months + 1, 1);
+  const end = new Date(state.selectedMonth.getFullYear(), state.selectedMonth.getMonth() + 1, 0);
+  return { start, end };
+}
+
+function selectedChartRecords() {
+  const { start, end } = selectedChartRange();
+  return state.records.filter((record) => {
+    const date = parseLocalDate(record.date);
+    return date >= start && date <= end;
+  }).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function formatMonthYear(date) {
+  return new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "long" }).format(date);
+}
+
+function formatChartRangeLabel() {
+  if (state.chartPeriod === "month") return formatMonthYear(state.selectedMonth);
+  const { start, end } = selectedChartRange();
+  return `${formatMonthYear(start)}〜${formatMonthYear(end)}`;
+}
 
 function saveRecords() {
   state.records.sort((a, b) => a.date.localeCompare(b.date));
@@ -158,11 +186,16 @@ function deleteRecord() {
 
 function render() {
   const records = selectedRecords();
-  elements.monthLabel.textContent = new Intl.DateTimeFormat("ja-JP", { year: "numeric", month: "long" }).format(state.selectedMonth);
+  const chartRecords = selectedChartRecords();
+  elements.monthLabel.textContent = formatChartRangeLabel();
+  elements.periodTabs.forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.period === state.chartPeriod));
+  });
+  elements.canvas.setAttribute("aria-label", `${formatChartRangeLabel()}の体重推移グラフ`);
   renderCurrent();
   renderSummary(records);
   renderRecords(records);
-  drawChart(records);
+  drawChart(chartRecords, selectedChartRange());
 }
 
 function renderCurrent() {
@@ -214,7 +247,73 @@ function renderRecords(records) {
   }));
 }
 
-function drawChart(records) {
+function buildNiceYAxis(values) {
+  const dataMin = Math.min(...values);
+  const dataMax = Math.max(...values);
+  const dataRange = dataMax - dataMin;
+  const candidates = [0.1, 0.5, 1.0];
+
+  const axes = candidates.map((step) => {
+    // 同じ値だけでも、最低4本の読みやすい目盛りを確保する。
+    const visualRange = Math.max(dataRange, step * 3);
+    const margin = Math.max(visualRange * 0.15, step * 0.4);
+    let min = Math.floor((dataMin - margin) / step) * step;
+    let max = Math.ceil((dataMax + margin) / step) * step;
+    if (max - min < step * 3) {
+      min -= step;
+      max += step;
+    }
+    min = Number(min.toFixed(1));
+    max = Number(max.toFixed(1));
+    const count = Math.round((max - min) / step) + 1;
+    return { min, max, step, count };
+  });
+
+  // 4〜6本の目盛りを優先し、同条件ならより細かい単位を採用する。
+  const withinPreferredCount = axes.find((axis) => axis.count >= 4 && axis.count <= 6);
+  const selected = withinPreferredCount || axes.reduce((best, axis) => (
+    Math.abs(axis.count - 5) < Math.abs(best.count - 5) ? axis : best
+  ));
+  const ticks = Array.from({ length: selected.count }, (_, index) => (
+    Number((selected.min + selected.step * index).toFixed(1))
+  ));
+  return { ...selected, ticks };
+}
+
+function chartMonthStarts(range) {
+  const months = [];
+  for (let date = new Date(range.start); date <= range.end; date = new Date(date.getFullYear(), date.getMonth() + 1, 1)) {
+    months.push(new Date(date));
+  }
+  return months;
+}
+
+function drawXAxis(ctx, rect, padding, x, range) {
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim();
+
+  if (state.chartPeriod === "month") {
+    const daysInMonth = range.end.getDate();
+    [1, 5, 10, 15, 20, 25, daysInMonth]
+      .filter((day, index, values) => day <= daysInMonth && values.indexOf(day) === index)
+      .forEach((day) => ctx.fillText(String(day), x(new Date(range.start.getFullYear(), range.start.getMonth(), day)), rect.height - padding.bottom + 12));
+    return;
+  }
+
+  const months = chartMonthStarts(range);
+  const interval = state.chartPeriod === "year" ? 2 : 1;
+  const indexes = months.map((_, index) => index).filter((index) => index % interval === 0 || index === months.length - 1);
+  indexes.forEach((index) => {
+    const date = months[index];
+    const previous = months[index - 1];
+    const showsYear = index === 0 || (previous && previous.getFullYear() !== date.getFullYear());
+    const label = showsYear ? `${date.getFullYear()}/${date.getMonth() + 1}` : `${date.getMonth() + 1}月`;
+    ctx.fillText(label, x(date), rect.height - padding.bottom + 12);
+  });
+}
+
+function drawChart(records, range) {
   const canvas = elements.canvas;
   const rect = canvas.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
@@ -236,36 +335,33 @@ function drawChart(records) {
   const padding = { top: 28, right: 24, bottom: 38, left: rect.width < 480 ? 44 : 54 };
   const width = rect.width - padding.left - padding.right;
   const height = rect.height - padding.top - padding.bottom;
-  const daysInMonth = new Date(state.selectedMonth.getFullYear(), state.selectedMonth.getMonth() + 1, 0).getDate();
-  const allValues = records.map((record) => record.weight).concat(state.goal || []);
-  let min = Math.floor((Math.min(...allValues) - 1) * 2) / 2;
-  let max = Math.ceil((Math.max(...allValues) + 1) * 2) / 2;
-  if (max - min < 2) { min -= 1; max += 1; }
-  const x = (day) => padding.left + ((day - 1) / (daysInMonth - 1)) * width;
-  const y = (weight) => padding.top + ((max - weight) / (max - min)) * height;
+  const allValues = records.map((record) => record.weight);
+  if (state.goal !== null) allValues.push(state.goal);
+  const axis = buildNiceYAxis(allValues);
+  const rangeDuration = Math.max(range.end.getTime() - range.start.getTime(), 1);
+  const x = (date) => padding.left + ((date.getTime() - range.start.getTime()) / rangeDuration) * width;
+  const y = (weight) => padding.top + ((axis.max - weight) / (axis.max - axis.min)) * height;
 
   ctx.font = "11px system-ui, sans-serif";
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
-  for (let i = 0; i <= 4; i += 1) {
-    const value = max - ((max - min) * i) / 4;
-    const py = padding.top + (height * i) / 4;
+  [...axis.ticks].reverse().forEach((value) => {
+    const py = y(value);
     ctx.strokeStyle = line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(padding.left, py); ctx.lineTo(rect.width - padding.right, py); ctx.stroke();
     ctx.fillStyle = muted; ctx.fillText(value.toFixed(1), padding.left - 9, py);
-  }
-  ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillStyle = muted;
-  [...new Set([1, 5, 10, 15, 20, 25, daysInMonth])].filter((day) => day <= daysInMonth).forEach((day) => ctx.fillText(String(day), x(day), rect.height - padding.bottom + 12));
+  });
+  drawXAxis(ctx, rect, padding, x, range);
 
-  if (state.goal) {
+  if (state.goal !== null) {
     ctx.strokeStyle = goalColor; ctx.lineWidth = 1.5; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.moveTo(padding.left, y(state.goal)); ctx.lineTo(rect.width - padding.right, y(state.goal)); ctx.stroke(); ctx.setLineDash([]);
   }
   if (records.length > 1) {
     ctx.strokeStyle = accent; ctx.lineWidth = 2.5; ctx.lineJoin = "round"; ctx.lineCap = "round"; ctx.beginPath();
-    records.forEach((record, index) => { const pointX = x(parseLocalDate(record.date).getDate()); const pointY = y(record.weight); index ? ctx.lineTo(pointX, pointY) : ctx.moveTo(pointX, pointY); });
+    records.forEach((record, index) => { const pointX = x(parseLocalDate(record.date)); const pointY = y(record.weight); index ? ctx.lineTo(pointX, pointY) : ctx.moveTo(pointX, pointY); });
     ctx.stroke();
   }
   records.forEach((record) => {
-    ctx.beginPath(); ctx.arc(x(parseLocalDate(record.date).getDate()), y(record.weight), 4.5, 0, Math.PI * 2); ctx.fillStyle = accent; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = ink; ctx.stroke();
+    ctx.beginPath(); ctx.arc(x(parseLocalDate(record.date)), y(record.weight), 4.5, 0, Math.PI * 2); ctx.fillStyle = accent; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = ink; ctx.stroke();
   });
 }
 
@@ -275,6 +371,12 @@ function formatDateLong(dateString) {
 
 function changeMonth(amount) {
   state.selectedMonth = new Date(state.selectedMonth.getFullYear(), state.selectedMonth.getMonth() + amount, 1);
+  render();
+}
+
+function changeChartPeriod(period) {
+  if (!CHART_PERIOD_MONTHS[period]) return;
+  state.chartPeriod = period;
   render();
 }
 
@@ -365,13 +467,14 @@ function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
   elements.themeSelect.value = theme;
   localStorage.setItem(STORAGE_KEYS.theme, theme);
-  requestAnimationFrame(() => drawChart(selectedRecords()));
+  requestAnimationFrame(render);
 }
 
 elements.form.addEventListener("submit", handleSubmit);
 elements.cancelEdit.addEventListener("click", resetForm);
 elements.prevMonth.addEventListener("click", () => changeMonth(-1));
 elements.nextMonth.addEventListener("click", () => changeMonth(1));
+elements.periodTabs.forEach((button) => button.addEventListener("click", () => changeChartPeriod(button.dataset.period)));
 elements.recordsList.addEventListener("click", (event) => {
   const button = event.target.closest("button[data-action]");
   if (!button) return;
@@ -386,7 +489,7 @@ elements.themeSelect.addEventListener("change", (event) => applyTheme(event.targ
 elements.exportCsv.addEventListener("click", exportCsv);
 elements.backup.addEventListener("click", createBackup);
 elements.restore.addEventListener("change", restoreBackup);
-window.addEventListener("resize", () => requestAnimationFrame(() => drawChart(selectedRecords())));
+window.addEventListener("resize", () => requestAnimationFrame(render));
 
 const today = new Date();
 elements.date.value = localDateString(today);

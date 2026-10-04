@@ -12,7 +12,7 @@
     <link rel="icon" href="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" />
     <link rel="apple-touch-icon" href="./icons/icon-180.png" />
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="stylesheet" href="./styles.css?v=3" />
+    <link rel="stylesheet" href="./styles.css?v=4" />
   </head>
   <body>
     <div class="app-shell">
@@ -109,11 +109,18 @@
                   <p class="section-kicker">TREND</p>
                   <h2 id="chartTitle">体重の推移</h2>
                 </div>
-                <nav class="month-nav" aria-label="表示月の変更">
-                  <button type="button" id="prevMonth" aria-label="前月を表示">‹</button>
-                  <strong id="monthLabel" aria-live="polite"></strong>
-                  <button type="button" id="nextMonth" aria-label="翌月を表示">›</button>
-                </nav>
+                <div class="chart-controls">
+                  <div class="period-tabs" role="group" aria-label="グラフの表示期間">
+                    <button type="button" data-period="month" aria-pressed="true">1か月</button>
+                    <button type="button" data-period="halfYear" aria-pressed="false">6か月</button>
+                    <button type="button" data-period="year" aria-pressed="false">1年</button>
+                  </div>
+                  <nav class="month-nav" aria-label="表示期間の変更">
+                    <button type="button" id="prevMonth" aria-label="前の月を基準に表示">‹</button>
+                    <strong id="monthLabel" aria-live="polite"></strong>
+                    <button type="button" id="nextMonth" aria-label="次の月を基準に表示">›</button>
+                  </nav>
+                </div>
               </div>
               <div class="chart-wrap">
                 <canvas id="weightChart" role="img" aria-label="選択月の体重推移グラフ"></canvas>
@@ -148,7 +155,7 @@
           </div>
         </section>
       </main>
-      <footer><span>mellow · v1.0.1</span><p>あなたのペースで、続けられる記録を。</p></footer>
+      <footer><span>mellow · v1.1.0</span><p>あなたのペースで、続けられる記録を。</p></footer>
     </div>
 
     <dialog id="goalDialog" aria-labelledby="goalDialogTitle">
@@ -167,6 +174,6 @@
       </form>
     </dialog>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script src="./app.js?v=3" defer></script>
+    <script src="./app.js?v=4" defer></script>
   </body>
 </html>

@@ -109,6 +109,10 @@ input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in sr
 .summary-grid dd { margin: 2px 0 0; font-weight: 700; }
 
 .chart-card { padding: 28px; min-height: 595px; }
+.chart-controls { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+.period-tabs { display: flex; gap: 6px; }
+.period-tabs button { min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--muted); font-size: .76rem; font-weight: 700; }
+.period-tabs button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: var(--bg); }
 .month-nav { display: grid; grid-template-columns: 42px minmax(120px, auto) 42px; align-items: center; gap: 5px; }
 .month-nav button { border: 1px solid var(--line); border-radius: 50%; background: var(--surface); color: var(--ink); font-size: 1.6rem; line-height: 1; }
 .month-nav strong { text-align: center; font-size: .95rem; }
@@ -165,6 +169,7 @@ dialog::backdrop { background: rgba(14, 24, 18, .55); backdrop-filter: blur(4px)
   .records-card { order: 5; }
   .chart-card { width: 100%; min-height: 455px; padding: 22px 17px; }
   .chart-wrap { height: 310px; margin-top: 22px; }
+  .period-tabs button { min-height: 40px; }
   .month-nav { grid-template-columns: 40px minmax(104px, auto) 40px; }
   .records-card { margin-top: 18px; padding: 22px 18px; }
   .data-section { flex-direction: column; align-items: stretch; }
@@ -190,7 +195,10 @@ dialog::backdrop { background: rgba(14, 24, 18, .55); backdrop-filter: blur(4px)
   .entry-card, .current-card, .summary-card { padding: 21px 18px; }
   .card { border-radius: 17px; }
   .chart-header { display: block; }
-  .month-nav { margin-top: 16px; width: 100%; grid-template-columns: 44px 1fr 44px; }
+  .chart-controls { align-items: stretch; margin-top: 16px; }
+  .period-tabs { width: 100%; }
+  .period-tabs button { flex: 1 1 0; padding: 0 8px; }
+  .month-nav { margin-top: 0; width: 100%; grid-template-columns: 44px 1fr 44px; }
   .chart-card { min-height: 420px; padding: 21px 14px 17px; }
   .chart-wrap { height: 280px; margin-top: 18px; }
   .chart-legend { margin-top: 3px; }

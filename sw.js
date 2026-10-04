@@ -1,12 +1,12 @@
 "use strict";
 
 // アプリ本体を更新したら、このバージョン名を変更してください。
-const CACHE_NAME = "mellow-cache-v4";
+const CACHE_NAME = "mellow-cache-v5";
 const APP_ASSETS = [
   "./",
   "./index.html",
-  "./styles.css?v=3",
-  "./app.js?v=3",
+  "./styles.css?v=4",
+  "./app.js?v=4",
   "./manifest.webmanifest",
   "./icons/icon-180.png",
   "./icons/icon-192.png",
